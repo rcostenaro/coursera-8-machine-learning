@@ -1,0 +1,187 @@
+---
+title: "Machine Learning Course Project"
+author: "R.A.C."
+date: "17 de maio de 2019"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(caret)
+
+library(rpart)
+
+library(randomForest)
+
+setwd("C:/Users/renan-costenaro/Documents/COURSERA")
+
+
+```
+## Reading Data
+
+```{r}
+
+pml_training <- read.csv("pml-training.csv")
+
+pml_testing <- read.csv("pml-testing.csv")
+
+```
+
+
+Original Dataset Size:
+``` {r}
+dim(pml_training)
+
+```
+
+## Exploratory data analysis
+
+The goal of this project is to predict the ```classe``` variable. We will use the other variables (columns) in the dataset to predict with. The ```classe``` can be either "A","B","C","D", "E" (five different levels).
+
+
+```{r}
+
+str(pml_training$classe)
+
+summary(pml_training$classe)
+
+```
+
+
+## Cleaning Data
+
+### Removing NAs
+
+The raw dataset has originally 160 variables (columns). However, only 93 columns are filled with valid data. There are 67 columns wich have almost only NA values (empty data) - the cutoff is 90%.
+
+In these 67 columns there are too many usefull values, and too many usable data. These columns are disrigarded on prediction.
+
+
+```{r}
+
+na_count <- colSums(is.na(pml_training))
+
+na_percent <- na_count / nrow(pml_training)
+
+remove <- na_percent > 0.90
+
+pml_training <- pml_training[, !remove]
+
+```
+
+
+Cleaned Dataset Size:
+
+``` {r}
+dim(pml_training)
+```
+
+### Removing low variance predictors
+
+The dataset has some "low variance" columns, wich are not good for prediction.
+
+This "low variance" columns will be removed from the model, will be not used on prediction.
+
+The cuttoff is 95/5 variance (default)
+
+
+```{r}
+
+nzv_cols <- nearZeroVar(pml_training)
+
+pml_training <- pml_training[, -nzv_cols]
+
+
+```
+
+Cleaned Dataset Size:
+
+``` {r}
+dim(pml_training)
+```
+
+### Removing other predictors
+
+
+```{r}
+
+remove <- names(pml_training) %in% c("X",
+                               "user_name",
+                               "cvtd_timestamp",
+                               "raw_timestamp_part_1",
+                               "raw_timestamp_part_2")
+
+pml_training <- pml_training[, !remove]
+
+
+```
+
+Cleaned Dataset Size:
+
+``` {r}
+dim(pml_training)
+```
+
+
+
+## Data Slicing
+### Creating partitions (60% / 40%)
+
+Use 60% observations of training data set (pml-training.csv) to build a model, and the remaining 40% to test it.
+
+package/function: caret/createDataPartition
+
+```{r}
+
+
+inTrain <- createDataPartition(pml_training$classe, p = 0.6, list = FALSE)
+
+train_60 <- pml_training[inTrain, ] 
+
+train_40 <- pml_training[-inTrain, ] 
+
+
+
+```
+
+
+## Using Random Forests method
+
+### Create Model
+```{r}
+
+modFitRF <- randomForest(classe ~ ., data=train_60, method="class")
+
+```
+
+### Test Model
+
+```{r}
+
+predictRF <- predict(modFitRF, train_40, type = "class")
+
+```
+
+### Expected Errors
+
+```{r}
+
+confusionMatrix(predictRF, train_40$classe)
+
+```
+
+
+## Apply Model
+
+Apply the model to de ```pml-testing.csv``` dataset (20 observations)
+
+
+```{r}
+
+predict(modFitRF, pml_testing)
+
+
+```
+
